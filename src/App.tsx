@@ -69,6 +69,9 @@ export default function App() {
       if (!parsed.countries) parsed.countries = parsed.country ? [parsed.country] : ['spain'];
       if (!parsed.name) parsed.name = 'User';
       if (!parsed.allergies) parsed.allergies = [];
+      if (!parsed.forbiddenIngredients) parsed.forbiddenIngredients = '';
+      if (!parsed.preferredIngredients) parsed.preferredIngredients = '';
+      if (!parsed.availableIngredients) parsed.availableIngredients = '';
       setProfile(parsed);
       setIsEditingProfile(false);
     }
@@ -703,11 +706,12 @@ export default function App() {
                 </form>
               </motion.div>
             ) : (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="grid grid-cols-2 md:grid-cols-7 gap-4"
-              >
+              <>
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="grid grid-cols-2 md:grid-cols-7 gap-4"
+                >
                 <div className="card-med p-6 flex flex-col items-center text-center gap-2">
                   <User className="text-med-olive" size={24} />
                   <span className="text-xs font-bold uppercase text-stone-600 tracking-widest">{t.name}</span>
@@ -744,8 +748,44 @@ export default function App() {
                   <span className="text-sm font-serif truncate w-full">{profile?.countries.join(', ')}</span>
                 </div>
               </motion.div>
-            )}
-          </AnimatePresence>
+
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4"
+              >
+                <div className="card-med p-4 bg-red-50/30 border-red-100">
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertCircle size={16} className="text-red-500" />
+                    <span className="text-xs font-bold uppercase text-stone-600 tracking-widest">{t.forbidden}</span>
+                  </div>
+                  <p className="text-sm text-stone-700 leading-relaxed italic">
+                    {profile?.forbiddenIngredients || 'None'}
+                  </p>
+                </div>
+                <div className="card-med p-4 bg-med-olive/5 border-med-olive/10">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckCircle2 size={16} className="text-med-olive" />
+                    <span className="text-xs font-bold uppercase text-stone-600 tracking-widest">{t.preferred}</span>
+                  </div>
+                  <p className="text-sm text-stone-700 leading-relaxed italic">
+                    {profile?.preferredIngredients || 'None'}
+                  </p>
+                </div>
+                <div className="card-med p-4 bg-med-ocean/5 border-med-ocean/10">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Utensils size={16} className="text-med-ocean" />
+                    <span className="text-xs font-bold uppercase text-stone-600 tracking-widest">{t.available}</span>
+                  </div>
+                  <p className="text-sm text-stone-700 leading-relaxed italic">
+                    {profile?.availableIngredients || 'None'}
+                  </p>
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
         </section>
 
         {/* Action Section */}

@@ -28,6 +28,15 @@ import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { Maximize2, Minimize2, Download, FileCode } from 'lucide-react';
 
+declare global {
+  interface Window {
+    aistudio: {
+      hasSelectedApiKey: () => Promise<boolean>;
+      openSelectKey: () => Promise<void>;
+    };
+  }
+}
+
 export default function App() {
   const [lang, setLang] = useState<Language>('es');
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -123,8 +132,18 @@ export default function App() {
     else if (viewMode === 'monthly') await handleGenerateMonthly();
   };
 
+  const checkApiKey = async () => {
+    if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
+      const hasKey = await window.aistudio.hasSelectedApiKey();
+      if (!hasKey) {
+        await window.aistudio.openSelectKey();
+      }
+    }
+  };
+
   const handleGenerateDaily = async () => {
     if (!profile) return;
+    await checkApiKey();
     setIsLoading(true);
     setError(null);
     setViewMode('daily');
@@ -137,8 +156,13 @@ export default function App() {
       const newHistory = [plan, ...history].slice(0, 10);
       setHistory(newHistory);
       localStorage.setItem('nutrimed_history', JSON.stringify(newHistory));
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      if (err.message?.includes('API key not valid') || err.message?.includes('Requested entity was not found')) {
+        if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
+          await window.aistudio.openSelectKey();
+        }
+      }
       setError(lang === 'es' ? 'Error al generar el plan. Por favor, intenta de nuevo.' : 'Error generating plan. Please try again.');
     } finally {
       setIsLoading(false);
@@ -163,6 +187,7 @@ export default function App() {
     setIsLoading(true);
     setError(null);
     try {
+      await checkApiKey();
       const { regenerateSingleMeal } = await import('./services/gemini');
       const newMeal = await regenerateSingleMeal(profile, targetPlan, mealType, lang);
       
@@ -198,9 +223,14 @@ export default function App() {
         setHistory(newHistory);
         localStorage.setItem('nutrimed_history', JSON.stringify(newHistory));
       }
-    } catch (err) {
-      setError(lang === 'es' ? 'Error al regenerar la receta.' : 'Error regenerating meal.');
+    } catch (err: any) {
       console.error(err);
+      if (err.message?.includes('API key not valid') || err.message?.includes('Requested entity was not found')) {
+        if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
+          await window.aistudio.openSelectKey();
+        }
+      }
+      setError(lang === 'es' ? 'Error al regenerar la receta.' : 'Error regenerating meal.');
     } finally {
       setIsLoading(false);
     }
@@ -208,6 +238,7 @@ export default function App() {
 
   const handleGenerateWeekly = async () => {
     if (!profile) return;
+    await checkApiKey();
     setIsLoading(true);
     setError(null);
     setViewMode('weekly');
@@ -217,8 +248,13 @@ export default function App() {
       setWeeklyPlan(plan);
       setCurrentPlan(null);
       setMonthlyPlan(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      if (err.message?.includes('API key not valid') || err.message?.includes('Requested entity was not found')) {
+        if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
+          await window.aistudio.openSelectKey();
+        }
+      }
       setError(lang === 'es' ? 'Error al generar el plan semanal. Por favor, intenta de nuevo.' : 'Error generating weekly plan. Please try again.');
     } finally {
       setIsLoading(false);
@@ -227,6 +263,7 @@ export default function App() {
 
   const handleGenerateMonthly = async () => {
     if (!profile) return;
+    await checkApiKey();
     setIsLoading(true);
     setError(null);
     setViewMode('monthly');
@@ -235,8 +272,13 @@ export default function App() {
       setMonthlyPlan(plan);
       setWeeklyPlan(null);
       setCurrentPlan(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      if (err.message?.includes('API key not valid') || err.message?.includes('Requested entity was not found')) {
+        if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
+          await window.aistudio.openSelectKey();
+        }
+      }
       setError(lang === 'es' ? 'Error al generar el plan mensual. Por favor, intenta de nuevo.' : 'Error generating monthly plan. Please try again.');
     } finally {
       setIsLoading(false);

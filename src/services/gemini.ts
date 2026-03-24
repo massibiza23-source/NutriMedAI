@@ -82,6 +82,10 @@ Generate a new ${mealType} to replace the current one.`;
     },
   });
 
+  if (!response.text) {
+    throw new Error("No response text from Gemini");
+  }
+
   return JSON.parse(response.text);
 }
 
@@ -196,6 +200,10 @@ Generate a complete daily meal plan (Breakfast, Lunch, Snack, Dinner).`;
     },
   });
 
+  if (!response.text) {
+    throw new Error("No response text from Gemini");
+  }
+
   return JSON.parse(response.text);
 }
 
@@ -247,6 +255,10 @@ Generate a complete 7-day weekly meal plan and shopping list.`;
     },
   });
 
+  if (!response.text) {
+    throw new Error("No response text from Gemini");
+  }
+
   return JSON.parse(response.text);
 }
 
@@ -296,6 +308,10 @@ Generate a complete 28-day monthly meal plan (4 weeks) with shopping lists for e
     },
   });
 
+  if (!response.text) {
+    throw new Error("No response text from Gemini");
+  }
+
   return JSON.parse(response.text);
 }
 
@@ -312,9 +328,12 @@ export async function generateMealImage(mealName: string, description: string): 
     },
   });
 
-  for (const part of response.candidates[0].content.parts) {
-    if (part.inlineData) {
-      return `data:image/png;base64,${part.inlineData.data}`;
+  const candidate = response.candidates?.[0];
+  if (candidate?.content?.parts) {
+    for (const part of candidate.content.parts) {
+      if (part.inlineData) {
+        return `data:image/png;base64,${part.inlineData.data}`;
+      }
     }
   }
   

@@ -43,8 +43,6 @@ export default function App() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fontSize, setFontSize] = useState(100);
 
-  const apiKeyMissing = !process.env.GEMINI_API_KEY;
-
   const t = translations[lang];
 
   const adjustFontSize = (delta: number) => {
@@ -580,19 +578,6 @@ export default function App() {
           </div>
         </div>
       </header>
-
-      {apiKeyMissing && (
-        <div className="max-w-5xl mx-auto px-6 mt-4">
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-3">
-            <AlertCircle size={20} />
-            <p className="text-sm font-medium">
-              {lang === 'es' 
-                ? 'Falta la clave API de Gemini. Por favor, configúrala en el panel de Secretos.' 
-                : 'Gemini API Key is missing. Please configure it in the Secrets panel.'}
-            </p>
-          </div>
-        </div>
-      )}
 
       <main className="max-w-5xl mx-auto px-6 mt-12 space-y-12">
         {/* Profile Section */}

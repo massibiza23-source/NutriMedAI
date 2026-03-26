@@ -1,18 +1,8 @@
-import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
-import { UserProfile, DailyMealPlan, Language, Meal, WeeklyPlan, MonthlyPlan } from "../types";
+import { GoogleGenAI, Type } from "@google/genai";
+import { UserProfile, DailyMealPlan, Language, Meal } from "../types";
 
-// Initialize Gemini AI
-// In this environment, GEMINI_API_KEY is injected into the environment.
-// We check multiple possible locations for the API key.
-const getApiKey = () => {
-  return (import.meta.env.VITE_GEMINI_API_KEY as string) || 
-         (import.meta.env.GEMINI_API_KEY as string) || 
-         (process.env.GEMINI_API_KEY as string) || 
-         "";
-};
-
-// Create a new instance for each call to ensure it uses the latest key
-const getAI = () => new GoogleGenAI({ apiKey: getApiKey() });
+const apiKey = process.env.GEMINI_API_KEY || "";
+const ai = new GoogleGenAI({ apiKey });
 
 const MEAL_SCHEMA = {
   type: Type.OBJECT,
@@ -38,6 +28,62 @@ const MEAL_SCHEMA = {
   },
   required: ["name", "description", "ingredients", "prepTime", "steps", "nutritionalInfo", "recipe"],
 };
+
+// ... (schemas remain the same)
+
+export async function regenerateSingleMeal(
+  profile: UserProfile,
+  currentPlan: DailyMealPlan,
+  mealType: 'breakfast' | 'lunch' | 'snack' | 'dinner',
+  lang: Language
+): Promise<Meal> {
+  const dietDesc = profile.dietType === 'none' ? 'general healthy' : profile.dietType;
+  const systemInstruction = `You are an expert clinical nutrition AI specialized in ${dietDesc} diet, low cholesterol, glycemic control, and heart health.
+Generate a SINGLE nutritionally balanced meal (${mealType}) in ${lang === 'es' ? 'Spanish' : 'English'} for a user named ${profile.name}.
+${profile.countries.length > 0 ? `Adapt the recipe to the culinary culture and typical ingredients of these regions: ${profile.countries.join(", ")}.` : ''}
+Strictly follow these rules:
+1. Diet style: ${dietDesc}.
+2. Low cholesterol and low saturated fat.
+3. Dietary Restrictions: ${profile.dietaryRestrictions.join(", ")}.
+4. ALLERGIES (CRITICAL): ${profile.allergies.join(", ")}. DO NOT include any ingredients the user is allergic to.
+5. Avoid forbidden ingredients: ${profile.forbiddenIngredients}.
+6. Prioritize: ${profile.preferredIngredients} and ${profile.availableIngredients}.
+7. AVOID REPEATING the current meal: ${currentPlan[mealType].name}.
+8. Ensure it complements the other meals in the day:
+   - Breakfast: ${currentPlan.breakfast.name}
+   - Lunch: ${currentPlan.lunch.name}
+   - Snack: ${currentPlan.snack.name}
+   - Dinner: ${currentPlan.dinner.name}
+9. Meals must be realistic for home cooking.
+10. Provide a clear preparation time and detailed step-by-step procedures.`;
+
+  const prompt = `User Profile:
+Name: ${profile.name}
+Age: ${profile.age}
+Gender: ${profile.gender}
+Weight: ${profile.weight}kg
+Height: ${profile.height}cm
+Activity Level: ${profile.activityLevel}
+Countries/Regions: ${profile.countries.join(", ") || 'International'}
+Diet Type: ${profile.dietType}
+Goals: ${profile.healthGoals.join(", ")}
+Restrictions: ${profile.dietaryRestrictions.join(", ")}
+Allergies: ${profile.allergies.join(", ")}
+
+Generate a new ${mealType} to replace the current one.`;
+
+  const response = await ai.models.generateContent({
+    model: "gemini-3.1-pro-preview",
+    contents: [{ parts: [{ text: prompt }] }],
+    config: {
+      systemInstruction,
+      responseMimeType: "application/json",
+      responseSchema: MEAL_SCHEMA,
+    },
+  });
+
+  return JSON.parse(response.text);
+}
 
 const DAILY_PLAN_SCHEMA = {
   type: Type.OBJECT,
@@ -140,7 +186,6 @@ Allergies: ${profile.allergies.join(", ")}
 
 Generate a complete daily meal plan (Breakfast, Lunch, Snack, Dinner).`;
 
-  const ai = getAI();
   const response = await ai.models.generateContent({
     model: "gemini-3.1-pro-preview",
     contents: [{ parts: [{ text: prompt }] }],
@@ -151,7 +196,6 @@ Generate a complete daily meal plan (Breakfast, Lunch, Snack, Dinner).`;
     },
   });
 
-  if (!response.text) throw new Error("No response text from Gemini");
   return JSON.parse(response.text);
 }
 
@@ -159,7 +203,7 @@ export async function generateWeeklyPlan(
   profile: UserProfile,
   recentMeals: string[],
   lang: Language
-): Promise<WeeklyPlan> {
+): Promise<any> {
   const dietDesc = profile.dietType === 'none' ? 'general healthy' : profile.dietType;
   const systemInstruction = `You are an expert clinical nutrition AI specialized in ${dietDesc} diet, low cholesterol, glycemic control, and heart health.
 Generate a nutritionally balanced WEEKLY meal plan (7 days) in ${lang === 'es' ? 'Spanish' : 'English'} for a user named ${profile.name}.
@@ -176,8 +220,7 @@ Strictly follow these rules:
 9. Meals must be realistic for home cooking.
 10. For each meal, provide a clear preparation time and detailed step-by-step procedures.
 11. Include a categorized shopping list for the entire week.
-12. Generate a CATCHY and ATTRACTIVE TITLE for the weekly plan that reflects the culinary influence (e.g., "Ruta Gastronómica Mediterránea", "Semana de Bienestar Ibérico", "Gran Tour de Italia").
-13. IMPORTANT: Be concise in meal descriptions and steps to ensure the entire plan fits in the response. Avoid overly long recipes.`;
+12. Generate a CATCHY and ATTRACTIVE TITLE for the weekly plan that reflects the culinary influence (e.g., "Ruta Gastronómica Mediterránea", "Semana de Bienestar Ibérico", "Gran Tour de Italia").`;
 
   const prompt = `User Profile:
 Name: ${profile.name}
@@ -194,26 +237,23 @@ Allergies: ${profile.allergies.join(", ")}
 
 Generate a complete 7-day weekly meal plan and shopping list.`;
 
-  const ai = getAI();
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-3.1-pro-preview",
     contents: [{ parts: [{ text: prompt }] }],
     config: {
       systemInstruction,
       responseMimeType: "application/json",
       responseSchema: WEEKLY_PLAN_SCHEMA,
-      maxOutputTokens: 8192,
     },
   });
 
-  if (!response.text) throw new Error("No response text from Gemini");
   return JSON.parse(response.text);
 }
 
 export async function generateMonthlyPlan(
   profile: UserProfile,
   lang: Language
-): Promise<MonthlyPlan> {
+): Promise<any> {
   const dietDesc = profile.dietType === 'none' ? 'general healthy' : profile.dietType;
   const systemInstruction = `You are an expert clinical nutrition AI specialized in ${dietDesc} diet, low cholesterol, glycemic control, and heart health.
 Generate a nutritionally balanced MONTHLY meal plan (4 weeks, 28 days) in ${lang === 'es' ? 'Spanish' : 'English'} for a user named ${profile.name}.
@@ -229,8 +269,7 @@ Strictly follow these rules:
 8. For each meal, provide a clear preparation time and detailed step-by-step procedures.
 9. Each week must have its own shopping list.
 10. Provide a general monthly advice.
-11. Generate a CATCHY and ATTRACTIVE TITLE for the monthly plan that reflects the culinary influence.
-12. IMPORTANT: Be concise in descriptions and steps to ensure the entire plan fits in the response.`;
+11. Generate a CATCHY and ATTRACTIVE TITLE for the monthly plan that reflects the culinary influence (e.g., "Odisea Mediterránea: Un Mes de Salud", "El Legado de la Dieta Mediterránea", "30 Días de Sol y Sabor").`;
 
   const prompt = `User Profile:
 Name: ${profile.name}
@@ -247,82 +286,22 @@ Allergies: ${profile.allergies.join(", ")}
 
 Generate a complete 28-day monthly meal plan (4 weeks) with shopping lists for each week. Ensure maximum variety and no repetition.`;
 
-  const ai = getAI();
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: [{ parts: [{ text: prompt }] }],
-    config: {
-      systemInstruction,
-      responseMimeType: "application/json",
-      responseSchema: MONTHLY_PLAN_SCHEMA,
-      maxOutputTokens: 8192,
-    },
-  });
-
-  if (!response.text) throw new Error("No response text from Gemini");
-  return JSON.parse(response.text);
-}
-
-export async function regenerateSingleMeal(
-  profile: UserProfile,
-  currentPlan: DailyMealPlan,
-  mealType: 'breakfast' | 'lunch' | 'snack' | 'dinner',
-  lang: Language
-): Promise<Meal> {
-  const dietDesc = profile.dietType === 'none' ? 'general healthy' : profile.dietType;
-  const systemInstruction = `You are an expert clinical nutrition AI specialized in ${dietDesc} diet, low cholesterol, glycemic control, and heart health.
-Generate a SINGLE nutritionally balanced meal (${mealType}) in ${lang === 'es' ? 'Spanish' : 'English'} for a user named ${profile.name}.
-${profile.countries.length > 0 ? `Adapt the recipe to the culinary culture and typical ingredients of these regions: ${profile.countries.join(", ")}.` : ''}
-Strictly follow these rules:
-1. Diet style: ${dietDesc}.
-2. Low cholesterol and low saturated fat.
-3. Dietary Restrictions: ${profile.dietaryRestrictions.join(", ")}.
-4. ALLERGIES (CRITICAL): ${profile.allergies.join(", ")}. DO NOT include any ingredients the user is allergic to.
-5. Avoid forbidden ingredients: ${profile.forbiddenIngredients}.
-6. Prioritize: ${profile.preferredIngredients} and ${profile.availableIngredients}.
-7. AVOID REPEATING the current meal: ${currentPlan[mealType].name}.
-8. Ensure it complements the other meals in the day:
-   - Breakfast: ${currentPlan.breakfast.name}
-   - Lunch: ${currentPlan.lunch.name}
-   - Snack: ${currentPlan.snack.name}
-   - Dinner: ${currentPlan.dinner.name}
-9. Meals must be realistic for home cooking.
-10. Provide a clear preparation time and detailed step-by-step procedures.`;
-
-  const prompt = `User Profile:
-Name: ${profile.name}
-Age: ${profile.age}
-Gender: ${profile.gender}
-Weight: ${profile.weight}kg
-Height: ${profile.height}cm
-Activity Level: ${profile.activityLevel}
-Countries/Regions: ${profile.countries.join(", ") || 'International'}
-Diet Type: ${profile.dietType}
-Goals: ${profile.healthGoals.join(", ")}
-Restrictions: ${profile.dietaryRestrictions.join(", ")}
-Allergies: ${profile.allergies.join(", ")}
-
-Generate a new ${mealType} to replace the current one.`;
-
-  const ai = getAI();
   const response = await ai.models.generateContent({
     model: "gemini-3.1-pro-preview",
     contents: [{ parts: [{ text: prompt }] }],
     config: {
       systemInstruction,
       responseMimeType: "application/json",
-      responseSchema: MEAL_SCHEMA,
+      responseSchema: MONTHLY_PLAN_SCHEMA,
     },
   });
 
-  if (!response.text) throw new Error("No response text from Gemini");
   return JSON.parse(response.text);
 }
 
 export async function generateMealImage(mealName: string, description: string): Promise<string> {
   const prompt = `A high-quality, appetizing, professional food photography of a Mediterranean dish: ${mealName}. ${description}. The lighting should be warm and natural, on a clean wooden table or ceramic plate.`;
   
-  const ai = getAI();
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash-image',
     contents: [{ parts: [{ text: prompt }] }],
@@ -333,13 +312,11 @@ export async function generateMealImage(mealName: string, description: string): 
     },
   });
 
-  const candidate = response.candidates?.[0];
-  if (candidate?.content?.parts) {
-    for (const part of candidate.content.parts) {
-      if (part.inlineData) {
-        return `data:image/png;base64,${part.inlineData.data}`;
-      }
+  for (const part of response.candidates[0].content.parts) {
+    if (part.inlineData) {
+      return `data:image/png;base64,${part.inlineData.data}`;
     }
   }
+  
   throw new Error("No image generated");
 }

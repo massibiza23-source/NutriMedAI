@@ -28,15 +28,6 @@ import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { Maximize2, Minimize2, Download, FileCode } from 'lucide-react';
 
-declare global {
-  interface Window {
-    aistudio: {
-      hasSelectedApiKey: () => Promise<boolean>;
-      openSelectKey: () => Promise<void>;
-    };
-  }
-}
-
 export default function App() {
   const [lang, setLang] = useState<Language>('es');
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -51,6 +42,8 @@ export default function App() {
   const [showPrintPreview, setShowPrintPreview] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fontSize, setFontSize] = useState(100);
+
+  const apiKeyMissing = !process.env.GEMINI_API_KEY;
 
   const t = translations[lang];
 
@@ -76,9 +69,6 @@ export default function App() {
       if (!parsed.countries) parsed.countries = parsed.country ? [parsed.country] : ['spain'];
       if (!parsed.name) parsed.name = 'User';
       if (!parsed.allergies) parsed.allergies = [];
-      if (!parsed.forbiddenIngredients) parsed.forbiddenIngredients = '';
-      if (!parsed.preferredIngredients) parsed.preferredIngredients = '';
-      if (!parsed.availableIngredients) parsed.availableIngredients = '';
       setProfile(parsed);
       setIsEditingProfile(false);
     }
@@ -132,18 +122,8 @@ export default function App() {
     else if (viewMode === 'monthly') await handleGenerateMonthly();
   };
 
-  const checkApiKey = async () => {
-    if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
-      const hasKey = await window.aistudio.hasSelectedApiKey();
-      if (!hasKey) {
-        await window.aistudio.openSelectKey();
-      }
-    }
-  };
-
   const handleGenerateDaily = async () => {
     if (!profile) return;
-    await checkApiKey();
     setIsLoading(true);
     setError(null);
     setViewMode('daily');
@@ -156,13 +136,8 @@ export default function App() {
       const newHistory = [plan, ...history].slice(0, 10);
       setHistory(newHistory);
       localStorage.setItem('nutrimed_history', JSON.stringify(newHistory));
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      if (err.message?.includes('API key not valid') || err.message?.includes('Requested entity was not found')) {
-        if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
-          await window.aistudio.openSelectKey();
-        }
-      }
       setError(lang === 'es' ? 'Error al generar el plan. Por favor, intenta de nuevo.' : 'Error generating plan. Please try again.');
     } finally {
       setIsLoading(false);
@@ -187,7 +162,6 @@ export default function App() {
     setIsLoading(true);
     setError(null);
     try {
-      await checkApiKey();
       const { regenerateSingleMeal } = await import('./services/gemini');
       const newMeal = await regenerateSingleMeal(profile, targetPlan, mealType, lang);
       
@@ -223,14 +197,9 @@ export default function App() {
         setHistory(newHistory);
         localStorage.setItem('nutrimed_history', JSON.stringify(newHistory));
       }
-    } catch (err: any) {
-      console.error(err);
-      if (err.message?.includes('API key not valid') || err.message?.includes('Requested entity was not found')) {
-        if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
-          await window.aistudio.openSelectKey();
-        }
-      }
+    } catch (err) {
       setError(lang === 'es' ? 'Error al regenerar la receta.' : 'Error regenerating meal.');
+      console.error(err);
     } finally {
       setIsLoading(false);
     }
@@ -238,7 +207,6 @@ export default function App() {
 
   const handleGenerateWeekly = async () => {
     if (!profile) return;
-    await checkApiKey();
     setIsLoading(true);
     setError(null);
     setViewMode('weekly');
@@ -248,13 +216,8 @@ export default function App() {
       setWeeklyPlan(plan);
       setCurrentPlan(null);
       setMonthlyPlan(null);
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      if (err.message?.includes('API key not valid') || err.message?.includes('Requested entity was not found')) {
-        if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
-          await window.aistudio.openSelectKey();
-        }
-      }
       setError(lang === 'es' ? 'Error al generar el plan semanal. Por favor, intenta de nuevo.' : 'Error generating weekly plan. Please try again.');
     } finally {
       setIsLoading(false);
@@ -263,7 +226,6 @@ export default function App() {
 
   const handleGenerateMonthly = async () => {
     if (!profile) return;
-    await checkApiKey();
     setIsLoading(true);
     setError(null);
     setViewMode('monthly');
@@ -272,13 +234,8 @@ export default function App() {
       setMonthlyPlan(plan);
       setWeeklyPlan(null);
       setCurrentPlan(null);
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      if (err.message?.includes('API key not valid') || err.message?.includes('Requested entity was not found')) {
-        if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
-          await window.aistudio.openSelectKey();
-        }
-      }
       setError(lang === 'es' ? 'Error al generar el plan mensual. Por favor, intenta de nuevo.' : 'Error generating monthly plan. Please try again.');
     } finally {
       setIsLoading(false);
@@ -621,6 +578,19 @@ export default function App() {
         </div>
       </header>
 
+      {apiKeyMissing && (
+        <div className="max-w-5xl mx-auto px-6 mt-4">
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-3">
+            <AlertCircle size={20} />
+            <p className="text-sm font-medium">
+              {lang === 'es' 
+                ? 'Falta la clave API de Gemini. Por favor, configúrala en el panel de Secretos.' 
+                : 'Gemini API Key is missing. Please configure it in the Secrets panel.'}
+            </p>
+          </div>
+        </div>
+      )}
+
       <main className="max-w-5xl mx-auto px-6 mt-12 space-y-12">
         {/* Profile Section */}
         <section>
@@ -733,12 +703,11 @@ export default function App() {
                 </form>
               </motion.div>
             ) : (
-              <>
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="grid grid-cols-2 md:grid-cols-7 gap-4"
-                >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="grid grid-cols-2 md:grid-cols-7 gap-4"
+              >
                 <div className="card-med p-6 flex flex-col items-center text-center gap-2">
                   <User className="text-med-olive" size={24} />
                   <span className="text-xs font-bold uppercase text-stone-600 tracking-widest">{t.name}</span>
@@ -775,44 +744,8 @@ export default function App() {
                   <span className="text-sm font-serif truncate w-full">{profile?.countries.join(', ')}</span>
                 </div>
               </motion.div>
-
-              <motion.div 
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4"
-              >
-                <div className="card-med p-4 bg-red-50/30 border-red-100">
-                  <div className="flex items-center gap-2 mb-2">
-                    <AlertCircle size={16} className="text-red-500" />
-                    <span className="text-xs font-bold uppercase text-stone-600 tracking-widest">{t.forbidden}</span>
-                  </div>
-                  <p className="text-sm text-stone-700 leading-relaxed italic">
-                    {profile?.forbiddenIngredients || 'None'}
-                  </p>
-                </div>
-                <div className="card-med p-4 bg-med-olive/5 border-med-olive/10">
-                  <div className="flex items-center gap-2 mb-2">
-                    <CheckCircle2 size={16} className="text-med-olive" />
-                    <span className="text-xs font-bold uppercase text-stone-600 tracking-widest">{t.preferred}</span>
-                  </div>
-                  <p className="text-sm text-stone-700 leading-relaxed italic">
-                    {profile?.preferredIngredients || 'None'}
-                  </p>
-                </div>
-                <div className="card-med p-4 bg-med-ocean/5 border-med-ocean/10">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Utensils size={16} className="text-med-ocean" />
-                    <span className="text-xs font-bold uppercase text-stone-600 tracking-widest">{t.available}</span>
-                  </div>
-                  <p className="text-sm text-stone-700 leading-relaxed italic">
-                    {profile?.availableIngredients || 'None'}
-                  </p>
-                </div>
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>
+            )}
+          </AnimatePresence>
         </section>
 
         {/* Action Section */}
@@ -1819,7 +1752,7 @@ function MealCard({ type, meal, t, onExclude, onRegenerate, isLoading }: { type:
             >
               <div className="pt-6 space-y-6">
                 {meal.steps && meal.steps.length > 0 && (
-                  <div className="mb-6">
+                  <div>
                     <h4 className="text-xs font-bold uppercase text-med-olive tracking-widest mb-3 flex items-center gap-2">
                       <ChefHat size={14} />
                       {t.steps}

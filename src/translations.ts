@@ -286,8 +286,6 @@ export const translations = {
       glycemic: "Carico Glicemico"
     },
     recipe: "Ricetta e Istruzioni",
-    prepTime: "Tempo di preparazione",
-    steps: "Passaggi",
     ingredients: "Ingredienti",
     advice: "Consiglio Nutrizionale",
     noHistory: "Nessuna cronologia. Genera il tuo primo piano!",
@@ -395,8 +393,6 @@ export const translations = {
       glycemic: "Charge glycémique"
     },
     recipe: "Recette et instructions",
-    prepTime: "Temps de préparation",
-    steps: "Étapes",
     ingredients: "Ingrédients",
     advice: "Conseil nutritionnel",
     noHistory: "Pas encore d'historique. Générez votre premier plan !",
@@ -504,8 +500,6 @@ export const translations = {
       glycemic: "Carga Glicêmica"
     },
     recipe: "Receita e Instruções",
-    prepTime: "Tempo de preparo",
-    steps: "Passos",
     ingredients: "Ingredientes",
     advice: "Conselho Nutricional",
     noHistory: "Sem histórico ainda. Gere seu primeiro plano!",
@@ -613,8 +607,6 @@ export const translations = {
       glycemic: "Glykämische Last"
     },
     recipe: "Rezept & Anleitung",
-    prepTime: "Zubereitungszeit",
-    steps: "Schritte",
     ingredients: "Zutaten",
     advice: "Ernährungstipp",
     noHistory: "Noch kein Verlauf. Erstellen Sie Ihren ersten Plan!",
